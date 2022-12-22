@@ -1,62 +1,74 @@
-import 'package:firebase_intern_sample_app/model/account_model.dart';
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_intern_sample_app/util/user_firestore.dart';
 import 'package:flutter/material.dart';
+import '../start_up/sign_in_page.dart';
 
 class UserListPage extends StatefulWidget {
-  const UserListPage({Key? key}) : super(key: key);
+  const UserListPage({super.key});
 
   @override
   State<UserListPage> createState() => _UserListPageState();
 }
 
 class _UserListPageState extends State<UserListPage> {
-  List accountList = [
-    Account(
-        id: '1',
-        imagePath:
-            'https://reraku.jp/wp-content/themes/reraku/src/images/shared/courses/hiro.jpg',
-        userName: 'ユーザー1',
-        selfIntroduction: 'ユーザー1の紹介'),
-    Account(
-        id: '2',
-        imagePath:
-            'https://reraku.jp/wp-content/themes/reraku/src/images/shared/courses/hiro.jpg',
-        userName: 'ユーザー2',
-        selfIntroduction: 'ユーザー2の紹介'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ユーザーリスト'),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {},
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.pushReplacement(context,
+                  MaterialPageRoute(builder: (context) => SignInPage()));
+            },
           ),
         ],
       ),
-      body: ListView.builder(
-          itemCount: accountList.length,
-          itemBuilder: (context, index) {
-            return SizedBox(
-              height: 80,
-              child: Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    radius: 30,
-                    foregroundImage: NetworkImage(accountList[index].imagePath),
-                    child: Icon(
-                      Icons.face,
-                      size: 20,
-                    ),
+      body: SafeArea(
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: UserFirestore.listFavorite(UserFirestore.myAccount!),
+            builder: (BuildContext context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text('取得できませんでした'),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: Center(
+                    child: CircularProgressIndicator(),
                   ),
-                  title: Text(accountList[index].userName),
-                  subtitle: Text(accountList[index].selfIntroduction),
-                ),
-              ),
-            );
-          }),
+                );
+              }
+              return ListView.builder(
+                itemCount: snapshot.data!.length,
+                itemBuilder: (context, index) {
+                  Map<String, dynamic> company = snapshot.data![index];
+                  return SizedBox(
+                    height: 80,
+                    child: Card(
+                      child: ListTile(
+                        title: Text(company['name']),
+                        subtitle: Text(company['number']),
+                        trailing: IconButton(
+                          onPressed: () async {
+                            await UserFirestore.removeFavorite(
+                                UserFirestore.myAccount!, company['id']);
+                            setState(() {});
+                          },
+                          icon: Icon(Icons.delete),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }),
+      ),
     );
   }
 }
